@@ -92,7 +92,7 @@ module.exports = RedisDb = (options) ->
       else
         # The document has been corrupted by the change. For now, throw an exception.
         # Later, rebuild the snapshot.
-        callback "Version mismatch in db.append. '#{docName}' is corrupted."
+        callback "Version mismatch in db.append. '#{docName}' is corrupted. (response: #{response} vs opData.v+1: #{opData.v+1})"
     
   # Write new snapshot data to the database.
   #
@@ -137,7 +137,7 @@ module.exports = RedisDb = (options) ->
     client.watch(keyForOps(docName))
   @watchDoc = (docName)->
     client.watch(keyForDoc(docName))
-  @multi = ()->
+  @multi = ->
     client = client.multi()
   @exec = (callback)->
     multi = client

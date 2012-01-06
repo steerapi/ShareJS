@@ -106,15 +106,44 @@ module.exports = Model = (db, options) ->
     # calls the callback immediately if opVersion == doc.v.
     redo = ->
       db.watchOp(docName)
-      getOps docName, op.v, doc.v, (error, ops) ->
+      getOps docName, op.v, null, (error, ops) ->
         return callback error if error
-
+        
         unless doc.v - op.v == ops.length
           # This should never happen. It indicates that we didn't get all the ops we
           # asked for. Its important that the submitted op is correctly transformed.
-          console.error "Could not get old ops in model for document #{docName}"
-          console.error "Expected ops #{op.v} to #{doc.v} and got #{ops.length} ops"
-          return callback 'Internal error'
+          # console.error "Could not get old ops in model for document #{docName}"
+          # console.error "Expected ops #{op.v} to #{doc.v} and got #{ops.length} ops"
+          # return callback 'Internal error'
+          
+          ##############
+          # apply ops
+          ##############
+          diff = ops.length-(doc.v - op.v)
+          oldOps = ops.slice(0, diff)
+          ops = ops.slice(diff)
+          for oldOp in oldOps
+            # Transform the operation
+            op.op = doc.type.transform op.op, oldOp.op, 'left'
+            op.v++
+            
+            # Apply the oldOps from other clients
+            snapshot = doc.type.apply doc.snapshot, oldOp.op
+            
+            # This is needed when we emit the 'change' event, below.
+            oldSnapshot = doc.snapshot
+
+            # All the heavy lifting is now done. Finally, we'll update the cache with the new data
+            # and (maybe!) save a new document snapshot to the database.
+
+            doc.v = oldOp.v + 1
+            doc.snapshot = snapshot
+
+            doc.ops.push oldOp
+            doc.ops.shift() if db and doc.ops.length > options.numCachedOps
+
+            model.emit 'applyOp', docName, oldOp, snapshot, oldSnapshot
+            doc.eventEmitter.emit 'op', oldOp, snapshot, oldSnapshot
 
         if ops.length > 0
           try
@@ -182,6 +211,7 @@ module.exports = Model = (db, options) ->
             tryWriteSnapshot docName, (error) ->
               console.warn "Error writing snapshot #{error}. This is nonfatal" if error
         db.exec (err,res) ->
+          console.log res
           unless res
             #random retry
             time=Math.random()*2000
@@ -444,31 +474,31 @@ module.exports = Model = (db, options) ->
     # getOps will only use the op cache if its there. It won't fill the op cache in.
     throw new Error 'start must be 0+' unless start >= 0
 
-    [end, callback] = [null, end] if typeof end is 'function'
-
-    ops = docs[docName]?.ops
-
-    if ops
-      version = docs[docName].v
-
-      # Ops contains an array of ops. The last op in the list is the last op applied
-      end ?= version
-      start = Math.min start, end
-
-      return callback null, [] if start == end
-
-      # Base is the version number of the oldest op we have cached
-      base = version - ops.length
-
-      # If the database is null, we'll trim to the ops we do have and hope thats enough.
-      if start >= base or db is null
-        refreshReapingTimeout docName
-        options.stats?.cacheHit 'getOps'
-
-        return callback null, ops[(start - base)...(end - base)]
-
-    options.stats?.cacheMiss 'getOps'
-
+    # [end, callback] = [null, end] if typeof end is 'function'
+    # 
+    #     ops = docs[docName]?.ops
+    # 
+    #     if ops
+    #       version = docs[docName].v
+    # 
+    #       # Ops contains an array of ops. The last op in the list is the last op applied
+    #       end ?= version
+    #       start = Math.min start, end
+    # 
+    #       return callback null, [] if start == end
+    # 
+    #       # Base is the version number of the oldest op we have cached
+    #       base = version - ops.length
+    # 
+    #       # If the database is null, we'll trim to the ops we do have and hope thats enough.
+    #       if start >= base or db is null
+    #         refreshReapingTimeout docName
+    #         options.stats?.cacheHit 'getOps'
+    # 
+    #         return callback null, ops[(start - base)...(end - base)]
+    # 
+    #     options.stats?.cacheMiss 'getOps'
+    
     getOpsInternal docName, start, end, callback
 
   # Gets the snapshot data for the specified document.
