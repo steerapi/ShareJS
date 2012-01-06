@@ -181,9 +181,14 @@ module.exports = Model = (db, options) ->
           if !doc.snapshotWriteLock and doc.committedVersion + options.opsBeforeCommit <= doc.v
             tryWriteSnapshot docName, (error) ->
               console.warn "Error writing snapshot #{error}. This is nonfatal" if error
-        db.exec (err,res)->
-          #Todo: backoff
-          redo() unless res
+        db.exec (err,res) ->
+          unless res
+            #random retry
+            time=Math.random()*2000
+            setTimeout ->
+              redo()
+            , time
+            
     redo()
   # Add the data for the given docName to the cache. The named document shouldn't already
   # exist in the doc set.
