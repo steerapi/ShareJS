@@ -30,7 +30,7 @@ module.exports = RedisDb = (options) ->
   keyForOps = (docName) -> "#{options.prefix}ops:#{docName}"
   keyForDoc = (docName) -> "#{options.prefix}doc:#{docName}"
 
-  client = redis.createClient options.port, options.hostname, options.redisOptions
+  original_client = client = redis.createClient options.port, options.hostname, options.redisOptions
 
   client.select 15 if options.testing
 
@@ -132,5 +132,15 @@ module.exports = RedisDb = (options) ->
   # Close the connection to the database
   @close = ->
     client.quit()
-
+    
+  @watchOp = (docName)->
+    client.watch(keyForOps(docName))
+  @watchDoc = (docName)->
+    client.watch(keyForDoc(docName))
+  @multi = ()->
+    client = client.multi()
+  @exec = (callback)->
+    multi = client
+    client = original_client
+    multi.exec(callback)
   this

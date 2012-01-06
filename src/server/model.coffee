@@ -104,82 +104,87 @@ module.exports = Model = (db, options) ->
 
     # We'll need to transform the op to the current version of the document. This
     # calls the callback immediately if opVersion == doc.v.
-    getOps docName, op.v, doc.v, (error, ops) ->
-      return callback error if error
+    redo = ->
+      db.watchOp(docName)
+      getOps docName, op.v, doc.v, (error, ops) ->
+        return callback error if error
 
-      unless doc.v - op.v == ops.length
-        # This should never happen. It indicates that we didn't get all the ops we
-        # asked for. Its important that the submitted op is correctly transformed.
-        console.error "Could not get old ops in model for document #{docName}"
-        console.error "Expected ops #{op.v} to #{doc.v} and got #{ops.length} ops"
-        return callback 'Internal error'
+        unless doc.v - op.v == ops.length
+          # This should never happen. It indicates that we didn't get all the ops we
+          # asked for. Its important that the submitted op is correctly transformed.
+          console.error "Could not get old ops in model for document #{docName}"
+          console.error "Expected ops #{op.v} to #{doc.v} and got #{ops.length} ops"
+          return callback 'Internal error'
 
-      if ops.length > 0
+        if ops.length > 0
+          try
+            # If there's enough ops, it might be worth spinning this out into a webworker thread.
+            for oldOp in ops
+              op.op = doc.type.transform op.op, oldOp.op, 'left'
+              op.v++
+          catch error
+            console.error error.stack
+            return callback error.message
+
         try
-          # If there's enough ops, it might be worth spinning this out into a webworker thread.
-          for oldOp in ops
-            op.op = doc.type.transform op.op, oldOp.op, 'left'
-            op.v++
+          snapshot = doc.type.apply doc.snapshot, op.op
         catch error
           console.error error.stack
           return callback error.message
 
-      try
-        snapshot = doc.type.apply doc.snapshot, op.op
-      catch error
-        console.error error.stack
-        return callback error.message
-
-      # The op data should be at the current version, and the new document data should be at
-      # the next version.
-      #
-      # This should never happen in practice, but its a nice little check to make sure everything
-      # is hunky-dory.
-      unless op.v == doc.v
-        # This should never happen.
-        console.error "Version mismatch detected in model. File a ticket - this is a bug."
-        console.error "Expecting #{op.v} == #{doc.v}"
-        return callback 'Internal error'
-
-      #newDocData = {snapshot, type:type.name, v:opVersion + 1, meta:docData.meta}
-      writeOp = db?.writeOp or (docName, newOpData, callback) -> callback()
-
-      writeOp docName, op, (error) ->
-        if error
-          # The user should probably know about this.
-          console.warn "Error writing ops to database: #{error}"
-          return callback error
-
-        options.stats?.writeOp?()
-
-        # This is needed when we emit the 'change' event, below.
-        oldSnapshot = doc.snapshot
-
-        # All the heavy lifting is now done. Finally, we'll update the cache with the new data
-        # and (maybe!) save a new document snapshot to the database.
-
-        doc.v = op.v + 1
-        doc.snapshot = snapshot
-
-        doc.ops.push op
-        doc.ops.shift() if db and doc.ops.length > options.numCachedOps
-
-        model.emit 'applyOp', docName, op, snapshot, oldSnapshot
-        doc.eventEmitter.emit 'op', op, snapshot, oldSnapshot
-
-        # The callback is called with the version of the document at which the op was applied.
-        # This is the op.v after transformation, and its doc.v - 1.
-        callback null, op.v
-    
-        # I need a decent strategy here for deciding whether or not to save the snapshot.
+        # The op data should be at the current version, and the new document data should be at
+        # the next version.
         #
-        # The 'right' strategy looks something like "Store the snapshot whenever the snapshot
-        # is smaller than the accumulated op data". For now, I'll just store it every 20
-        # ops or something. (Configurable with doc.committedVersion)
-        if !doc.snapshotWriteLock and doc.committedVersion + options.opsBeforeCommit <= doc.v
-          tryWriteSnapshot docName, (error) ->
-            console.warn "Error writing snapshot #{error}. This is nonfatal" if error
+        # This should never happen in practice, but its a nice little check to make sure everything
+        # is hunky-dory.
+        unless op.v == doc.v
+          # This should never happen.
+          console.error "Version mismatch detected in model. File a ticket - this is a bug."
+          console.error "Expecting #{op.v} == #{doc.v}"
+          return callback 'Internal error'
 
+        #newDocData = {snapshot, type:type.name, v:opVersion + 1, meta:docData.meta}
+        writeOp = db?.writeOp or (docName, newOpData, callback) -> callback()
+        db.multi()
+        writeOp docName, op, (error) ->
+          if error
+            # The user should probably know about this.
+            console.warn "Error writing ops to database: #{error}"
+            return callback error
+
+          options.stats?.writeOp?()
+
+          # This is needed when we emit the 'change' event, below.
+          oldSnapshot = doc.snapshot
+
+          # All the heavy lifting is now done. Finally, we'll update the cache with the new data
+          # and (maybe!) save a new document snapshot to the database.
+
+          doc.v = op.v + 1
+          doc.snapshot = snapshot
+
+          doc.ops.push op
+          doc.ops.shift() if db and doc.ops.length > options.numCachedOps
+
+          model.emit 'applyOp', docName, op, snapshot, oldSnapshot
+          doc.eventEmitter.emit 'op', op, snapshot, oldSnapshot
+
+          # The callback is called with the version of the document at which the op was applied.
+          # This is the op.v after transformation, and its doc.v - 1.
+          callback null, op.v
+    
+          # I need a decent strategy here for deciding whether or not to save the snapshot.
+          #
+          # The 'right' strategy looks something like "Store the snapshot whenever the snapshot
+          # is smaller than the accumulated op data". For now, I'll just store it every 20
+          # ops or something. (Configurable with doc.committedVersion)
+          if !doc.snapshotWriteLock and doc.committedVersion + options.opsBeforeCommit <= doc.v
+            tryWriteSnapshot docName, (error) ->
+              console.warn "Error writing snapshot #{error}. This is nonfatal" if error
+        db.exec (err,res)->
+          #Todo: backoff
+          redo() unless res
+    redo()
   # Add the data for the given docName to the cache. The named document shouldn't already
   # exist in the doc set.
   #
