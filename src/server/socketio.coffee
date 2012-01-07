@@ -18,12 +18,13 @@ i = ->#util.inspect
 #
 # Options = {}
 exports.attach = (server, createClient, options) ->
-  socketio = undefined
-  unless options.socketio?.io
+  io = undefined
+  unless options?.socketio?.io
     socketio = require 'socket.io'
+    io = socketio.listen server
+  else
+    io = options?.socketio?.io
   
-  io = socketio.listen server
-
   io.configure ->
     io.set 'log level', 1
     for option in options

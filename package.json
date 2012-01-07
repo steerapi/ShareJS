@@ -1,6 +1,6 @@
 {
   "name": "share-wisdom",
-  "version": "0.5.0-pre",
+  "version": "0.5.2-pre",
   "description": "A database for concurrent document editing",
   "keywords": ["operational transformation", "ot", "concurrent", "collaborative", "database", "server"],
   "homepage": "",
