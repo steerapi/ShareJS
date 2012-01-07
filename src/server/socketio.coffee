@@ -8,7 +8,6 @@
 # This code will be removed in a future version of sharejs because socket.io is
 # too buggy.
 
-socketio = require 'socket.io'
 util = require 'util'
 hat = require 'hat'
 
@@ -19,6 +18,10 @@ i = ->#util.inspect
 #
 # Options = {}
 exports.attach = (server, createClient, options) ->
+  socketio = undefined
+  unless options.socketio?.io
+    socketio = require 'socket.io'
+  
   io = socketio.listen server
 
   io.configure ->
