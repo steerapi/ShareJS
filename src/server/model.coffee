@@ -211,7 +211,7 @@ module.exports = Model = (db, options) ->
             tryWriteSnapshot docName, (error) ->
               console.warn "Error writing snapshot #{error}. This is nonfatal" if error
         db.exec (err,res) ->
-          console.log res
+          # console.log res
           unless res
             #random retry
             time=Math.random()*2000

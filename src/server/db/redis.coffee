@@ -30,8 +30,10 @@ module.exports = RedisDb = (options) ->
   keyForOps = (docName) -> "#{options.prefix}ops:#{docName}"
   keyForDoc = (docName) -> "#{options.prefix}doc:#{docName}"
 
-  original_client = client = redis.createClient options.port, options.hostname, options.redisOptions
+  original_client = client = redis.createClient options.port, options.host, options.redisOptions
 
+  client.auth options.password
+  
   client.select 15 if options.testing
 
   # Creates a new document.
