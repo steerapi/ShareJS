@@ -13,6 +13,7 @@ defaultOptions = {
   # Inherit the default options from redis. (Hostname: 127.0.0.1, port: 6379)
   host: null
   port: null
+  password: null
   redisOptions: null
 
   # If this is set to true, the client will select db 15 and wipe all data in
