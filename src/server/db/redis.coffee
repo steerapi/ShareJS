@@ -11,7 +11,7 @@ defaultOptions = {
   prefix: 'ShareJS:'
 
   # Inherit the default options from redis. (Hostname: 127.0.0.1, port: 6379)
-  hostname: null
+  host: null
   port: null
   redisOptions: null
 
@@ -31,8 +31,10 @@ module.exports = RedisDb = (options) ->
   keyForDoc = (docName) -> "#{options.prefix}doc:#{docName}"
 
   original_client = client = redis.createClient options.port, options.host, options.redisOptions
-
-  client.auth options.password
+  
+  if options.password?
+    client.auth options.password, (err)->
+      throw err if err?
   
   client.select 15 if options.testing
 
