@@ -44,7 +44,7 @@ exports.attach = (server, createClient, options) ->
 
   io.of('/sjs').authorization(authClient).on 'connection', (socket) ->
     client = socket.handshake.client
-
+    # console.log "######### on connection"
     # There seems to be a bug in socket.io where socket.request isn't set sometimes.
     p "New socket connected from #{socket.request.socket.remoteAddress} with id #{socket.id}" if socket.request?
 

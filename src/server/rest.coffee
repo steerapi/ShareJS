@@ -70,6 +70,13 @@ router = (app, createClient, options) ->
       else
         sendError res, error
 
+  app.get '/op/:name/:start?/:end?', auth, (req, res) ->
+    req._client.getOps req.params.name, req.param("start",0), req.param("end",null), (error, ops) ->
+      if ops
+        sendJSON res, ops
+      else
+        sendError res, error
+
   # GET returns the document snapshot. The version and type are sent as headers.
   # I'm not sure what to do with document metadata - it is inaccessable for now.
   app.get '/doc/:name', auth, (req, res) ->

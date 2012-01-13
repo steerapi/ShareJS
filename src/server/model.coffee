@@ -105,6 +105,7 @@ module.exports = Model = (db, options) ->
     # We'll need to transform the op to the current version of the document. This
     # calls the callback immediately if opVersion == doc.v.
     redo = ->
+      # TODO Check if it is a redisDB
       db.watchOp(docName)
       getOps docName, op.v, null, (error, ops) ->
         return callback error if error
