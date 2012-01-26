@@ -19,7 +19,7 @@ i = ->#util.inspect
 # Options = {}
 exports.attach = (server, createClient, options) ->
   unless io=(options?.io)
-    socketio = require 'socket.io'
+    socketio = require 'socket.io-wisdom'
     io = socketio.listen server
   io.configure ->
     io.set 'log level', 1

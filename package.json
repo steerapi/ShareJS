@@ -1,6 +1,6 @@
 {
   "name": "share-wisdom",
-  "version": "0.5.4-pre",
+  "version": "0.5.0-0",
   "description": "A database for concurrent document editing",
   "keywords": ["operational transformation", "ot", "concurrent", "collaborative", "database", "server"],
   "homepage": "",
@@ -11,7 +11,7 @@
     "sharejs-exampleserver": "bin/exampleserver"
   },
   "dependencies": {
-    "socket.io": "~0.8",
+    "socket.io-wisdom": "~0.8",
     "socket.io-client": "~0.8",
     "connect": ">= 1.1.1 < 2.0.0",
     "optimist": ">= 0.2.4",
