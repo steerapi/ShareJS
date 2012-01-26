@@ -20,6 +20,9 @@ class SubDoc
   # for objects and lists
   remove: (cb) -> @doc.removeAt @path, cb
   push: (value, cb) -> @insert @get().length, value, cb
+  pop: (cb) -> @doc.popAt @path, cb
+  shiftLeft: (value, cb) -> @doc.shiftLeftAt @path, value, cb
+  shiftRight: (value, cb) -> @doc.shiftRightAt @path, value, cb
   move: (from, to, cb) -> @doc.moveAt @path, from, to, cb
   add: (amount, cb) -> @doc.addAt @path, amount, cb
   on: (event, cb) -> @doc.addListener @path, event, cb
@@ -79,6 +82,28 @@ json.api =
       op.od = elem[key]
     else throw new Error 'bad path'
     @submitOp [op], cb
+  
+  shiftLeftAt: (path, value, cb) ->
+    {elem, key} = traverse @snapshot, path
+    op = {p:path}
+    if elem[key].constructor == Array
+      op.lsl = value
+    @submitOp [op], cb
+  
+  popAt: (path, cb) ->
+    op = {p:path}
+    op.lp = null
+    @submitOp [op], cb
+    
+  shiftRightAt: (path, value, cb) ->
+    {elem, key} = traverse @snapshot, path
+    iop = {p:path.concat 0}
+    # if elem[key].constructor == Array
+    iop.li = value
+    dop = {p:path.concat elem[key].length-1}
+    dop.ld = null
+    
+    @submitOp [iop,dop], cb
 
   insertAt: (path, pos, value, cb) ->
     {elem, key} = traverse @snapshot, path

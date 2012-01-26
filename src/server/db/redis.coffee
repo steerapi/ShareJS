@@ -87,8 +87,8 @@ module.exports = RedisDb = (options) ->
   @writeOp = (docName, opData, callback) ->
     # ****** NOT SAFE FOR MULTIPLE PROCESSES. Rewrite me using transactions or something.
 
-    # The version isn't stored.
-    json = JSON.stringify {op:opData.op, meta:opData.meta}
+    # The version isn't stored. The source isn't store
+    json = JSON.stringify {op:opData.op, meta:{ts:opData.meta.ts}}
     client.rpush keyForOps(docName), json, (err, response) ->
       return callback err if err
 

@@ -21,6 +21,11 @@ json.invertComponent = (c) ->
   c_.oi = c.od if c.od != undefined
   c_.ld = c.li if c.li != undefined
   c_.li = c.ld if c.ld != undefined
+  if c.lp != undefined
+    c_.li = c.lp
+    c_.p = c_.p.concat c.lpi
+  c_.lsl = c.lsr if c.lsr != undefined
+  c_.lsr = c.lsl if c.lsl != undefined
   c_.na = -c.na if c.na != undefined
   if c.lm != undefined
     c_.lm = c.p[c.p.length-1]
@@ -40,6 +45,7 @@ json.checkObj = (elem) ->
 
 json.apply = (snapshot, op) ->
   json.checkValidOp op
+  _op = op
   op = clone op
 
   container = {data: clone snapshot}
@@ -100,7 +106,29 @@ json.apply = (snapshot, op) ->
           elem.splice key, 1
           # And insert it back.
           elem.splice c.lm, 0, e
+      else if c.lp !=undefined
+        # List pop
+        elem = elem[key]
+        json.checkList elem
 
+        _op[i].lp = elem.pop()
+        _op[i].lpi = elem.length
+      else if c.lsr !=undefined
+        # List shift right
+        elem = elem[key]
+        json.checkList elem
+        
+        elem.pop()
+        elem.splice 0, 0, c.lsr
+        
+      else if c.lsl !=undefined
+        # List shift left
+        elem = elem[key]
+        json.checkList elem
+        
+        elem.splice 0, 1
+        elem.push c.lsl
+        
       else if c.oi != undefined
         # Object insert / replace
         json.checkObj elem
@@ -392,6 +420,24 @@ json.transformComponent = (dest, c, otherC, type) ->
           else if p == to
             if from > to
               c.p[common]++
+    # else if otherC.lsr != undefined
+    #       console.log otherC.lsr
+    #       if c.lsr != undefined
+    #         # in lsl vs. lsl, left wins.
+    #         if type == 'right'
+    #           c.p[common]++
+    #       else if otherC.p[common] <= c.p[common]
+    #         c.p[common]++
+    #           
+    #     else if otherC.lsl != undefined
+    #       console.log otherC.lsl
+    #       if c.lsl != undefined
+    #         # in lsl vs. lsl, left wins.
+    #         if type == 'right'
+    #           c.p[common]++
+    #       else if otherC.p[common] <= c.p[common]
+    #         c.p[common]++
+
     else if otherC.oi != undefined && otherC.od != undefined
       if c.p[common] == otherC.p[common]
         if c.oi != undefined and commonOperand
